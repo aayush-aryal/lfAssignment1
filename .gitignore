@@ -1,0 +1,25 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+venv/
+*.venv/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# .env file for API keys (ensure this is never tracked)
+.env
+
+# LangChain related
+langchain_*.db    # Database files
+job_listings_db
+
+
+# Log files
+*.log
+
+# OS-specific files
+.DS_Store          # macOS
+Thumbs.db          # Windows
