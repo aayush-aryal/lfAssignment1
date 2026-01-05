@@ -65,13 +65,13 @@ def delete_old_messages(state: AgentState, runtime: Runtime) -> dict | None:
     messages = state["messages"]
     if len(messages) > 6:
         # remove the earliest two messages
-        return {"messages": [RemoveMessage(id=m.id) for m in messages[:-6]]} # type: ignore
+        return {"messages": [RemoveMessage(id=m.id) for m in messages[:-2]]} # type: ignore
     return None
 
 model=init_chat_model("google_genai:gemini-2.5-flash")
 
 def initialize_agent():
-    agent=create_agent(model,tools=[],middleware=[prompt_with_context],checkpointer=InMemorySaver())
+    agent=create_agent(model,tools=[],middleware=[prompt_with_context,delete_old_messages],checkpointer=InMemorySaver())
     return agent
 
 # agent=initialize_agent()
