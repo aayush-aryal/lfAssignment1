@@ -55,6 +55,7 @@ for _,row in df.iterrows():
     doc = Document(
         page_content=content,
         metadata={
+            "job_id":row["ID"],
             "title": row["Job Title"],
             "category": row["Job Category"],
             "tags": row["Tags"],
@@ -67,8 +68,8 @@ for _,row in df.iterrows():
     docs.append(doc)
 
 text_spliiter=RecursiveCharacterTextSplitter(
-    chunk_size=2000,
-    chunk_overlap=100,
+    chunk_size=1500,
+    chunk_overlap=150,
 )
 final_docs=[]
 for doc in docs:
@@ -77,18 +78,18 @@ for doc in docs:
         chunk.metadata["chunk"]=i
         final_docs.append(chunk)
 
-vector_store.add_documents(final_docs)
+# vector_store.add_documents(final_docs)
 
 
 # all_splits=text_spliiter.split_documents(docs)
 
 # print(f"Split job posts into {len(all_splits)} sub-documents.")
 
-# document_ids=[]
-# batch_size = 128
+document_ids=[]
+batch_size = 256
 
-# for i in range(0, len(all_splits), batch_size):
-#     document_ids+=vector_store.add_documents(all_splits[i:i+batch_size])
+for i in range(0, len(final_docs), batch_size):
+    document_ids+=vector_store.add_documents(final_docs[i:i+batch_size])
 
 # print(document_ids[:3])
 print("Finished adding to vector store!")

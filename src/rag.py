@@ -39,22 +39,37 @@ retreiver=vector_store.as_retriever(
 @dynamic_prompt
 def prompt_with_context(request:ModelRequest)->str:
     last_query=request.state["messages"][-1].text
-    retrieved_docs=vector_store.similarity_search(last_query,k=5)
+    retrieved_docs=vector_store.similarity_search(last_query,k=3)
 
     docs_content="\n\n".join(f"Metadata:{doc.metadata}\nDescription:{doc.page_content}" for doc in retrieved_docs)
 
-    system_message = (
-    "You are a helpful assistant for job seekers. "
-    "Answer the user's question **only using the provided context**. "
-    "The context contains job listings with details such as ID, Position, Company, Location, Date Published, Job Description, and other metadata.\n\n"
-    "When answering, follow these rules:\n"
-    "1. Provide a **concise and accurate answer**.\n"
-    "2.Answer the user’s query ONLY using the following job postings.\n"
-    "4. Do not make up information that is not in the context.\n"
-    "5. Highlight the most relevant jobs for the user's query.\n"
-    "6. Quote Relevant Context used in answering the question always\n"
-    "7. If multiple jobs are relevant, summarize them clearly and briefly.\n\n"
-    f"Context:\n{docs_content}")
+    system_message = (f"""
+    You are a helpful assistant for job seekers.
+
+    Your task is to answer the user's question using ONLY the provided context and relevant information from the previous conversation when helpful.
+
+    The context consists of job postings. Each job posting may contain:
+    - Metadata fields: ID, Position, Company, Location, Date Published
+    - Job Description text
+
+    Follow these rules strictly:
+
+    1. Use ONLY the information present in the provided context. Do NOT make up or infer missing details.
+    2. Identify and highlight the job postings that are most relevant to the user's question.
+    3. When discussing a job, always include key metadata when available:
+    - Position
+    - Company
+    - Location
+    - Date Published
+    4. Use the job description only to support or explain details already present in the posting.
+    5. Always quote the exact pieces of context (including metadata or job description text) that you used to answer the question.
+    6. If multiple jobs are relevant, summarize each one clearly and briefly.
+    7. If the context does not contain enough information to answer the question, say so explicitly.
+    8. Output must be plain text only. Do not use markdown, bullet symbols, or formatting.
+
+    Context:
+    {docs_content}
+    """)
     print(system_message)
     return system_message
 
@@ -64,7 +79,7 @@ def prompt_with_context(request:ModelRequest)->str:
 def delete_old_messages(state: AgentState, runtime: Runtime) -> dict | None:
     """Remove old messages to keep conversation manageable."""
     messages = state["messages"]
-    if len(messages) > 6:
+    if len(messages) > 2:
         # remove the earliest two messages
         return {"messages": [RemoveMessage(id=m.id) for m in messages[:-2]]} # type: ignore
     return None
