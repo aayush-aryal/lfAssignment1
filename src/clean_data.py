@@ -16,7 +16,7 @@ read_get_info("/Users/aayush-aryal/Documents/lfAssignment1/jobs.xlsx")
 
 def clean_job_description(text:str):
     soup=BeautifulSoup(text,"html.parser")
-    return soup.get_text()
+    return soup.get_text().lower()
 
 
 def clean_df_from_path(path:str):
