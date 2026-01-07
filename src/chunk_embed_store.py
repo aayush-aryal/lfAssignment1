@@ -9,6 +9,11 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
+from pathlib import Path
+
+
+BASE_DIR=Path(__file__).resolve().parent.parent
+DATA_PATH=BASE_DIR/"data"/"jobs.xlsx"
 
 
 #following block of code has been commented due to my use of ollama instead
@@ -32,7 +37,7 @@ vector_store=Chroma(
 )
 
 #i will kinda hardcode this for niw
-df=clean_df_from_path("/Users/aayush-aryal/Documents/lfAssignment1/jobs.xlsx")
+df=clean_df_from_path(str(DATA_PATH))
 
 # loader=DataFrameLoader(df,page_content_column="Job Description")
 # docs=loader.load()
