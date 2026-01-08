@@ -1,19 +1,24 @@
-# import os 
-# import getpass 
-# from langchain.chat_models import init_chat_model
-# from langchain_google_genai import GoogleGenerativeAIEmbeddings
-
+import os 
 from langchain_community.document_loaders import DataFrameLoader
-from clean_data import clean_df_from_path
+from src.clean_data import clean_df_from_path,DATA_PATH
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
-from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from pathlib import Path
+from langchain_pinecone import PineconeVectorStore
+from pinecone import Pinecone
+import dotenv
 
 
-BASE_DIR=Path(__file__).resolve().parent.parent
-DATA_PATH=BASE_DIR/"data"/"jobs.xlsx"
+
+dotenv.load_dotenv()
+
+#embeddings model
+embeddings=OllamaEmbeddings(model="mxbai-embed-large")
+pc=Pinecone(api_key=os.environ["PINECONE_API_KEY"])
+index=pc.Index(name="job-listings")
+vector_store=PineconeVectorStore(index=index,embedding=embeddings)
+
 
 
 #following block of code has been commented due to my use of ollama instead
@@ -24,77 +29,65 @@ DATA_PATH=BASE_DIR/"data"/"jobs.xlsx"
 
 
 
-#embeddings model
-embeddings=OllamaEmbeddings(model="nomic-embed-text:latest")
-# embeddings=GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+def chunk_embed_store():
 
-#using in memory vector store for now
-# vector_store=InMemoryVectorStore(embeddings)
-vector_store=Chroma(
-    collection_name="job_listings",
-    embedding_function=embeddings,
-    persist_directory="./job_listings_db"
-)
+    # embeddings=GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 
-#i will kinda hardcode this for niw
-df=clean_df_from_path(str(DATA_PATH))
+    #using in memory vector store for now
+    # vector_store=InMemoryVectorStore(embeddings)
+    df=clean_df_from_path(str(DATA_PATH))
 
-# loader=DataFrameLoader(df,page_content_column="Job Description")
-# docs=loader.load()
+    # loader=DataFrameLoader(df,page_content_column="Job Description")
+    # docs=loader.load()
 
-docs=[]
+    docs=[]
 
-for _,row in df.iterrows():
-    content = f"""
-    Job Title, Company, Location, Date Published, Job ID.
-    Job Title: {row['Job Title']}
-    Category: {row['Job Category']}
-    Tags: {row['Tags']}
-    Company Name: {row['Company Name']}
-    Publication Date: {row['Publication Date']}
-    Job Level: {row['Job Level']}
+    for _,row in df.iterrows():
+        content = f"""
+        {row['Job Description']}
+        """.strip()
+        doc = Document(
+            page_content=content,
+            metadata={
+                "job_id":row["ID"],
+                "title": row["Job Title"],
+                "category": row["Job Category"],
+                "tags": row["Tags"],
+                "company_name":row["Company Name"],
+                "publication_date":row["Publication Date"],
+                "job_level":row['Job Level']
+            }
+        )
 
-    Description:
-    {row['Job Description']}
-    """.strip()
-    doc = Document(
-        page_content=content,
-        metadata={
-            "job_id":row["ID"],
-            "title": row["Job Title"],
-            "category": row["Job Category"],
-            "tags": row["Tags"],
-            "company_name":row["Company Name"],
-            "publication_date":row["Publication Date"],
-            "job_level":row['Job Level']
-        }
+        docs.append(doc)
+
+    text_spliiter=RecursiveCharacterTextSplitter(
+        chunk_size=1500,
+        chunk_overlap=150,
     )
+    final_docs=[]
+    for doc in docs:
+        chunks=text_spliiter.split_documents([doc])
+        for i,chunk in enumerate(chunks):
+            chunk.metadata["chunk"]=i
+            final_docs.append(chunk)
 
-    docs.append(doc)
-
-text_spliiter=RecursiveCharacterTextSplitter(
-    chunk_size=1500,
-    chunk_overlap=150,
-)
-final_docs=[]
-for doc in docs:
-    chunks=text_spliiter.split_documents([doc])
-    for i,chunk in enumerate(chunks):
-        chunk.metadata["chunk"]=i
-        final_docs.append(chunk)
-
-# vector_store.add_documents(final_docs)
+    # vector_store.add_documents(final_docs)
 
 
-# all_splits=text_spliiter.split_documents(docs)
+    # all_splits=text_spliiter.split_documents(docs)
 
-# print(f"Split job posts into {len(all_splits)} sub-documents.")
+    # print(f"Split job posts into {len(all_splits)} sub-documents.")
 
-document_ids=[]
-batch_size = 256
+    document_ids=[]
+    batch_size = 1024
 
-for i in range(0, len(final_docs), batch_size):
-    document_ids+=vector_store.add_documents(final_docs[i:i+batch_size])
+    for i in range(0, len(final_docs), batch_size):
+        document_ids+=vector_store.add_documents(final_docs[i:i+batch_size])
 
-# print(document_ids[:3])
-print("Finished adding to vector store!")
+    # print(document_ids[:3])
+    print("Finished adding to vector store!")
+
+
+if __name__=="__main__":
+    chunk_embed_store()
